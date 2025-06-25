@@ -1,0 +1,88 @@
+<div id="mastodon-feed"></div>
+<style>
+  .mastodon-post {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    background-color: #f9f9f9;
+  }
+  .mastodon-post-content {
+    margin-bottom: 10px;
+  }
+  .mastodon-post-meta {
+    font-size: 0.9em;
+    color: #666;
+  }
+  .mastodon-post a {
+    color: #3088d4;
+    text-decoration: none;
+  }
+  .mastodon-post a:hover {
+    text-decoration: underline;
+  }
+</style>
+
+<script>
+// Конфигурация
+const mastodonConfig = {
+  instance: 'https://mastodon.social', // Замените на адрес вашего Mastodon-инстанса
+  username: 'yourusername', // Замените на ваш username
+  limit: 5 // Количество отображаемых постов
+};
+
+// Функция для загрузки и отображения постов
+function loadMastodonFeed() {
+  const feedContainer = document.getElementById('mastodon-feed');
+  feedContainer.innerHTML = '<p>Загрузка постов из Mastodon...</p>';
+  
+  // Формируем URL для запроса к API Mastodon
+  const apiUrl = `${mastodonConfig.instance}/api/v1/accounts/lookup?acct=${mastodonConfig.username}`;
+  
+  // Сначала получаем ID пользователя
+  fetch(apiUrl)
+    .then(response => response.json())
+    .then(account => {
+      const statusesUrl = `${mastodonConfig.instance}/api/v1/accounts/${account.id}/statuses?limit=${mastodonConfig.limit}&exclude_replies=true`;
+      
+      // Затем получаем посты пользователя
+      return fetch(statusesUrl);
+    })
+    .then(response => response.json())
+    .then(posts => {
+      if (posts.length === 0) {
+        feedContainer.innerHTML = '<p>Нет постов для отображения.</p>';
+        return;
+      }
+      
+      let html = '';
+      posts.forEach(post => {
+        // Обрабатываем содержимое поста (удаляем HTML-теги из Mastodon)
+        let content = post.content.replace(/<[^>]*>/g, '');
+        
+        // Форматируем дату
+        const postDate = new Date(post.created_at);
+        const dateStr = postDate.toLocaleDateString() + ' ' + postDate.toLocaleTimeString();
+        
+        // Формируем HTML для поста
+        html += `
+          <div class="mastodon-post">
+            <div class="mastodon-post-content">${content}</div>
+            <div class="mastodon-post-meta">
+              <a href="${post.url}" target="_blank">${dateStr}</a>
+            </div>
+          </div>
+        `;
+      });
+      
+      feedContainer.innerHTML = html;
+    })
+    .catch(error => {
+      console.error('Ошибка загрузки Mastodon-ленты:', error);
+      feedContainer.innerHTML = '<p>Не удалось загрузить посты из Mastodon.</p>';
+    });
+}
+
+// Загружаем ленту при загрузке страницы
+window.addEventListener('DOMContentLoaded', loadMastodonFeed);
+</script>
