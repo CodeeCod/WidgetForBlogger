@@ -14,3 +14,5 @@
 - `https://mastodon.social` на адрес вашего Mastodon-инстанса
 - `yourusername` на ваше имя пользователя в Mastodon
 - `limit: 5` на желаемое количество отображаемых постов
+Ссылка на статью в моем блоге: [Как добавить ленту Mastodon на сайт Blogger: простой способ
+](https://www.niiazov.com/2025/06/mastodon-blogger.html)
