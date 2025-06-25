@@ -1,88 +1,190 @@
 <div id="mastodon-feed"></div>
 <style>
+  .mastodon-feed-container {
+    font-family: Arial, sans-serif;
+    max-width: 600px;
+    margin: 0 auto;
+  }
   .mastodon-post {
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 15px;
-    background-color: #f9f9f9;
+    border: 1px solid #e1e8ed;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+    background-color: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
   }
   .mastodon-post-content {
-    margin-bottom: 10px;
+    margin-bottom: 12px;
+    line-height: 1.4;
+    font-size: 15px;
+  }
+  .mastodon-post-media {
+    margin-top: 12px;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .mastodon-post-image {
+    max-width: 100%;
+    border-radius: 8px;
+    display: block;
+  }
+  .mastodon-post-video {
+    width: 100%;
+    border-radius: 8px;
   }
   .mastodon-post-meta {
-    font-size: 0.9em;
-    color: #666;
+    font-size: 0.85em;
+    color: #657786;
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
   }
-  .mastodon-post a {
-    color: #3088d4;
+  .mastodon-post-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    margin-right: 8px;
+  }
+  .mastodon-post-link {
+    color: #2b90d9;
     text-decoration: none;
   }
-  .mastodon-post a:hover {
+  .mastodon-post-link:hover {
     text-decoration: underline;
+  }
+  .media-grid {
+    display: grid;
+    grid-gap: 4px;
+    margin-top: 8px;
+  }
+  .media-grid-1 {
+    grid-template-columns: 1fr;
+  }
+  .media-grid-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+  .media-grid-3 {
+    grid-template-columns: 1fr 1fr;
+  }
+  .media-grid-4 {
+    grid-template-columns: 1fr 1fr;
+  }
+  .media-grid img, .media-grid video {
+    width: 100%;
+    height: auto;
+    border-radius: 4px;
+    object-fit: cover;
   }
 </style>
 
 <script>
 // Конфигурация
 const mastodonConfig = {
-  instance: 'https://mastodon.social', // Замените на адрес вашего Mastodon-инстанса
-  username: 'yourusername', // Замените на ваш username
-  limit: 5 // Количество отображаемых постов
+  instance: 'https://mastodon.social', // Замените на ваш инстанс
+  username: 'yourusername', // Ваш логин
+  limit: 5, // Количество постов
+  showImages: true, // Показывать изображения
+  showVideos: true // Показывать видео
 };
 
-// Функция для загрузки и отображения постов
-function loadMastodonFeed() {
+// Загрузка ленты
+async function loadMastodonFeed() {
   const feedContainer = document.getElementById('mastodon-feed');
-  feedContainer.innerHTML = '<p>Загрузка постов из Mastodon...</p>';
+  feedContainer.innerHTML = '<div style="text-align:center;padding:20px;">Загрузка ленты Mastodon...</div>';
   
-  // Формируем URL для запроса к API Mastodon
-  const apiUrl = `${mastodonConfig.instance}/api/v1/accounts/lookup?acct=${mastodonConfig.username}`;
-  
-  // Сначала получаем ID пользователя
-  fetch(apiUrl)
-    .then(response => response.json())
-    .then(account => {
-      const statusesUrl = `${mastodonConfig.instance}/api/v1/accounts/${account.id}/statuses?limit=${mastodonConfig.limit}&exclude_replies=true`;
+  try {
+    // Получаем данные аккаунта
+    const accountResponse = await fetch(
+      `${mastodonConfig.instance}/api/v1/accounts/lookup?acct=${mastodonConfig.username}`
+    );
+    const account = await accountResponse.json();
+    
+    // Получаем посты
+    const postsResponse = await fetch(
+      `${mastodonConfig.instance}/api/v1/accounts/${account.id}/statuses?limit=${mastodonConfig.limit}&exclude_replies=true&include_media=true`
+    );
+    const posts = await postsResponse.json();
+    
+    if (posts.length === 0) {
+      feedContainer.innerHTML = '<div style="text-align:center;padding:20px;">Нет публикаций для отображения</div>';
+      return;
+    }
+    
+    let html = '';
+    for (const post of posts) {
+      // Обработка контента
+      let content = post.content.replace(/<[^>]*>/g, '');
       
-      // Затем получаем посты пользователя
-      return fetch(statusesUrl);
-    })
-    .then(response => response.json())
-    .then(posts => {
-      if (posts.length === 0) {
-        feedContainer.innerHTML = '<p>Нет постов для отображения.</p>';
-        return;
+      // Форматирование даты
+      const postDate = new Date(post.created_at);
+      const dateStr = postDate.toLocaleDateString() + ' в ' + postDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      
+      // Обработка медиа
+      let mediaHtml = '';
+      if (mastodonConfig.showImages || mastodonConfig.showVideos) {
+        const mediaAttachments = post.media_attachments || [];
+        if (mediaAttachments.length > 0) {
+          const mediaItems = [];
+          
+          for (const media of mediaAttachments) {
+            if (media.type === 'image' && mastodonConfig.showImages) {
+              mediaItems.push(`<img src="${media.url}" alt="Изображение из Mastodon" class="mastodon-post-image">`);
+            } else if (media.type === 'video' && mastodonConfig.showVideos) {
+              mediaItems.push(`
+                <video controls class="mastodon-post-video">
+                  <source src="${media.url}" type="${media.mime_type}">
+                  Ваш браузер не поддерживает видео.
+                </video>
+              `);
+            } else if (media.type === 'gifv' && mastodonConfig.showVideos) {
+              mediaItems.push(`
+                <video autoplay loop muted playsinline class="mastodon-post-video">
+                  <source src="${media.url}" type="video/mp4">
+                  Ваш браузер не поддерживает GIF.
+                </video>
+              `);
+            }
+          }
+          
+          if (mediaItems.length > 0) {
+            let gridClass = 'media-grid-1';
+            if (mediaItems.length === 2) gridClass = 'media-grid-2';
+            else if (mediaItems.length === 3) gridClass = 'media-grid-3';
+            else if (mediaItems.length >= 4) gridClass = 'media-grid-4';
+            
+            mediaHtml = `
+              <div class="media-grid ${gridClass}">
+                ${mediaItems.join('')}
+              </div>
+            `;
+          }
+        }
       }
       
-      let html = '';
-      posts.forEach(post => {
-        // Обрабатываем содержимое поста (удаляем HTML-теги из Mastodon)
-        let content = post.content.replace(/<[^>]*>/g, '');
-        
-        // Форматируем дату
-        const postDate = new Date(post.created_at);
-        const dateStr = postDate.toLocaleDateString() + ' ' + postDate.toLocaleTimeString();
-        
-        // Формируем HTML для поста
-        html += `
-          <div class="mastodon-post">
-            <div class="mastodon-post-content">${content}</div>
-            <div class="mastodon-post-meta">
-              <a href="${post.url}" target="_blank">${dateStr}</a>
-            </div>
+      // Формирование HTML поста
+      html += `
+        <div class="mastodon-post">
+          <div class="mastodon-post-content">${content}</div>
+          ${mediaHtml}
+          <div class="mastodon-post-meta">
+            <img src="${account.avatar}" class="mastodon-post-avatar" alt="Аватар">
+            <a href="${post.url}" target="_blank" class="mastodon-post-link">${dateStr}</a>
           </div>
-        `;
-      });
-      
-      feedContainer.innerHTML = html;
-    })
-    .catch(error => {
-      console.error('Ошибка загрузки Mastodon-ленты:', error);
-      feedContainer.innerHTML = '<p>Не удалось загрузить посты из Mastodon.</p>';
-    });
+        </div>
+      `;
+    }
+    
+    feedContainer.innerHTML = html;
+  } catch (error) {
+    console.error('Ошибка загрузки Mastodon:', error);
+    feedContainer.innerHTML = '<div style="text-align:center;padding:20px;color:#d00;">Не удалось загрузить ленту Mastodon</div>';
+  }
 }
 
-// Загружаем ленту при загрузке страницы
-window.addEventListener('DOMContentLoaded', loadMastodonFeed);
+// Загрузка при готовности страницы
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', loadMastodonFeed);
+} else {
+  loadMastodonFeed();
+}
 </script>
